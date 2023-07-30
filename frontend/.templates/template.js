@@ -1,4 +1,4 @@
-import Component from '%jellyfish.component.not-compiled%';
+import Component from '%jellyserve.component.not-compiled%';
 
 const app = new Component({
     target: document.body

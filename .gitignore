@@ -2,4 +2,6 @@
 /frontend/package-lock.json
 /.server
 /__pycache__
+jellyserve/__pycache__
 /ideas.md
+/.vscode

@@ -1,3 +1,3 @@
-from jellyfish.core import Jellyfish
+from jellyserve.core import JellyServe
 
-app = Jellyfish()
+app = JellyServe()
