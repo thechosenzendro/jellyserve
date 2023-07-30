@@ -1,0 +1,5 @@
+config = {
+    "server": {
+        "mode": "dev"
+    }
+}
