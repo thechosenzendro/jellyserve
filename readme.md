@@ -1,4 +1,5 @@
 # JellyServe
-JellyServe is a simple, flexible web framework with native support for svelte files (Not yet)
+
+JellyServe is a simple and flexible web framework written in Python with native support for .svelte files.
 
 More info will be added soon

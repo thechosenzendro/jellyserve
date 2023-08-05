@@ -1,5 +1,5 @@
 from app import app
-from jellyserve.response import Response, template
+from jellyserve.response import template
 
 
 @app.route("/")
@@ -22,11 +22,6 @@ def test2(request, test_id):
     return f"Look ma! No matcher: {test_id}"
 
 
-@app.route("/response")
-def response(request):
-    return template("./template.html")
-
-
 @app.route("/sveltetest")
 def sveltetest(request):
-    return template("./frontend/Index.svelte")
+    return template("frontend/Index.svelte")

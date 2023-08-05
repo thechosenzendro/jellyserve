@@ -4,12 +4,10 @@ from .exceptions import RouteAlreadyDefinedError, MatcherAlreadyDefinedError
 from .internals import route_exists_and_is_valid
 from .response import Response, error
 
-
 class JellyServe:
     def __init__(self):
         self.routes = {}
         self.matchers = {}
-        self.config = {}
 
     def route(self, url: str) -> Callable:
         def route_decorator(func: Callable):
@@ -53,7 +51,6 @@ class JellyServe:
                     response = routes[url_matching_result](self, *variables.values())
                 else:
                     response = url_matching_result
-                print(f"Response: {response}")
                 is_response = isinstance(response, Response)
                 if not is_response:
                     html = response
@@ -62,12 +59,18 @@ class JellyServe:
                 for header, value in response.headers.items():
                     self.send_header(header, value)
                     self.end_headers()
-                for line in response.html.splitlines():
-                    self.wfile.write(bytes(line, "utf-8"))
+                    content = response.content
+                    if isinstance(content, bytes):
+                        self.wfile.write(content)
+                    elif isinstance(content, str):
+                        self.wfile.write(bytes(content, "utf-8"))
+                #for line in response.content.splitlines():
+                    #if isinstance(line, bytes):
+                        #self.wfile.write(line)
+                    #elif isinstance(line, str):
+                        #self.wfile.write(bytes(line, "utf-8"))
 
         web_server = Server((hostname, port), Handler, self)
-        if config:
-            self.config = config
         if config["server"]["mode"]:
             print(f"Running in {config['server']['mode']} mode")
         print(f"Server started at http://{hostname}:{port}")

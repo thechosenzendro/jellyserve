@@ -1,6 +1,6 @@
 from .exceptions import MatcherNotFoundError
-from .response import error
-
+from .response import error, Response
+import re, os, mimetypes
 
 def route_exists_and_is_valid(url: str, route_patterns: dict, matchers: dict):
     if url.endswith("/") and url != "/":
@@ -19,6 +19,16 @@ def route_exists_and_is_valid(url: str, route_patterns: dict, matchers: dict):
         if url == route:
             return route, variables
 
+        if re.fullmatch(r"^.*\..*$", url):
+            file_url = f"public{url}"
+            if os.path.isfile(file_url):
+                mimetype = mimetypes.guess_type(file_url)[0]
+                with open(file_url, "rb") as f:
+                    return Response(f.read(), headers={
+                        "Content-type": f"{mimetype}"
+                    }), None
+            else:
+                return error(404, f"File {url} not found."), None
         route_list = route.split("/")
 
         if len(url_list) != len(route_list):
