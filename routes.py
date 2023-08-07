@@ -25,3 +25,8 @@ def test2(request, test_id):
 @app.route("/sveltetest")
 def sveltetest(request):
     return template("frontend/Index.svelte")
+
+
+@app.route("/api", method="POST")
+def api(request):
+    return [{"WOW": "API?"}, {"Nene": "JJ"}]

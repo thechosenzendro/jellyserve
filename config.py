@@ -1,5 +1,1 @@
-config = {
-    "server": {
-        "mode": "dev"
-    }
-}
+config = {"server": {"mode": "prod"}}

@@ -1,9 +1,11 @@
 import pathlib, os
-import jellyserve.runtime as runtime
+from .config import get_config_value
+
+
 class Response:
     def __init__(
         self,
-        content: str = "Looks like you did not specify \"contentW\" in your Response.",
+        content: str = 'Looks like you did not specify "content" in your Response.',
         status: int = 200,
         headers: dict = {"Content-type": "text/html; charset=utf-8"},
     ) -> None:
@@ -12,18 +14,22 @@ class Response:
         self.headers = headers
 
 
-def template(template_location: str, title: str="JellyServe Page") -> Response:
-    config = runtime.config
+def template(template_location: str, title: str = "JellyServe Page") -> Response:
     with open(template_location, encoding="utf-8") as template:
         if template_location.endswith(".html"):
             return Response(template.read())
+
         elif template_location.endswith(".svelte"):
-            if config["server"]["mode"] == "dev" or not config:
-                    html = generate_component(template_location, title=title)
-                    return Response(content=html)
-            elif config["server"]["mode"] == "prod":
-                component_name = os.path.basename(template_location).replace(".svelte", "")
-                html_path = f"public/.runtime/{component_name}/template.html"
+            SERVER_MODE = get_config_value("server/mode")
+            RUNTIME_PATH = get_config_value("server/runtime_path")
+            if SERVER_MODE == "dev":
+                html = generate_component(template_location, title=title)
+                return Response(content=html)
+            elif SERVER_MODE == "prod":
+                component_name = os.path.basename(template_location).replace(
+                    ".svelte", ""
+                )
+                html_path = f"{RUNTIME_PATH}{component_name}/template.html"
                 if os.path.exists(html_path):
                     with open(html_path) as html:
                         return Response(content=html.read())
@@ -35,29 +41,82 @@ def template(template_location: str, title: str="JellyServe Page") -> Response:
 
 
 def error(status: int, message: str = ...) -> None:
-    html = f"""
-    <html>
-    <head>
-    <title>{status} - {message}</title>
-    </head>
-    <body>
-    <h1>{status}</h1>
-    <p>{message}</p>
-    </body>
-    </html>    
-"""
-    return Response(status=status, content=html)
+    ERROR_TEMPLATE_PATH = get_config_value("server/errors/template_path")
+    with open(ERROR_TEMPLATE_PATH) as template:
+        html = (
+            template.read()
+            .replace("%jellyserve.error.status%", str(status))
+            .replace("%jellyserve.error.message%", message)
+        )
+        return Response(status=status, content=html)
 
-def generate_component(url: str, output_folder: str="public/.runtime", title: str="JellyServe Page") -> str:
+
+def generate_component(
+    url: str,
+    title: str = get_config_value("templates/default_title"),
+) -> str:
     component_name = os.path.basename(url).replace(".svelte", "")
-    os.makedirs(f"{output_folder}/{component_name}", exist_ok=True)
-    with open(f"{output_folder}/{component_name}/template.js","w+", encoding="utf-8") as js:
-        with open("frontend/.templates/template.js", "r", encoding="utf-8") as js_template:
-            js.write(js_template.read().replace("%jellyserve.component.not-compiled%", os.path.abspath(url)))
-    os.system(f"frontend/node_modules/.bin/rollup --input public/.runtime/{component_name}/template.js --output.format iife --output.name app --output.file public/.runtime/{component_name}/output.js --plugin svelte --plugin @rollup/plugin-node-resolve")
-    with open("frontend/.templates/template.html", "r", encoding="utf-8") as html_template:
-        with open(f"{output_folder}/{component_name}/template.html","w+", encoding="utf-8") as html:
-            html_result = html_template.read().replace("%jellyserve.component.compiled%", f".runtime/{component_name}/output.js").replace("%jellyserve.title%", title)
+    RUNTIME_PATH = get_config_value("server/runtime_path")
+    TEMPLATES_PATH = get_config_value("templates/templates_path")
+    FRONTEND_PATH = get_config_value("templates/frontend_path")
+    RUNTIME_URL = get_config_value("server/runtime_url")
+    os.makedirs(f"{RUNTIME_PATH}{component_name}", exist_ok=True)
+    with open(
+        f"{RUNTIME_PATH}{component_name}/template.js", "w+", encoding="utf-8"
+    ) as js:
+        with open(f"{TEMPLATES_PATH}template.js", "r", encoding="utf-8") as js_template:
+            js.write(
+                js_template.read().replace(
+                    "%jellyserve.component.not-compiled%", os.path.abspath(url)
+                )
+            )
+    with open(
+        f"{RUNTIME_PATH}{component_name}/rollup.config.mjs", "w+", encoding="utf-8"
+    ) as rollup:
+        with open(
+            f"{TEMPLATES_PATH}template.rollup.config.mjs", "r", encoding="utf-8"
+        ) as rollup_template:
+            rollup.write(
+                rollup_template.read()
+                .replace(
+                    "%jellyserve.rollup.svelte.path%",
+                    os.path.abspath(
+                        f"{FRONTEND_PATH}node_modules/rollup-plugin-svelte/index.js"
+                    ),
+                )
+                .replace(
+                    "%jellyserve.rollup.resolve.path%",
+                    os.path.abspath(
+                        f"{FRONTEND_PATH}node_modules/@rollup/plugin-node-resolve/dist/es/index.js"
+                    ),
+                )
+                .replace(
+                    "%jellyserve.component.template.js%",
+                    os.path.abspath(f"{RUNTIME_PATH}{component_name}/template.js"),
+                )
+                .replace(
+                    "%jellyserve.component.compiled%",
+                    os.path.abspath(f"{RUNTIME_PATH}{component_name}/output.js"),
+                )
+                .replace("%jellyserve.frontend.path%", os.path.abspath(FRONTEND_PATH))
+            )
+    os.system(
+        f"{FRONTEND_PATH}/node_modules/.bin/rollup -c {RUNTIME_PATH}{component_name}/rollup.config.mjs"
+    )
+    with open(
+        f"{FRONTEND_PATH}/.templates/template.html", "r", encoding="utf-8"
+    ) as html_template:
+        with open(
+            f"{RUNTIME_PATH}{component_name}/template.html", "w+", encoding="utf-8"
+        ) as html:
+            html_result = (
+                html_template.read()
+                .replace(
+                    "%jellyserve.component.compiled%",
+                    f"{RUNTIME_URL}{component_name}/output.js",
+                )
+                .replace("%jellyserve.title%", title)
+            )
             html.write(html_result)
             print(f"Component {component_name} generated succesfully.")
             return html_result

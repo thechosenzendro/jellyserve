@@ -1,6 +1,11 @@
 from .exceptions import MatcherNotFoundError
 from .response import error, Response
-import re, os, mimetypes
+from .messages import Message
+from .config import get_config_value
+from typing import Callable
+import re, os, mimetypes, asyncio, websockets
+from functools import partial
+
 
 def route_exists_and_is_valid(url: str, route_patterns: dict, matchers: dict):
     if url.endswith("/") and url != "/":
@@ -20,13 +25,16 @@ def route_exists_and_is_valid(url: str, route_patterns: dict, matchers: dict):
             return route, variables
 
         if re.fullmatch(r"^.*\..*$", url):
-            file_url = f"public{url}"
-            if os.path.isfile(file_url):
-                mimetype = mimetypes.guess_type(file_url)[0]
-                with open(file_url, "rb") as f:
-                    return Response(f.read(), headers={
-                        "Content-type": f"{mimetype}"
-                    }), None
+            url = url[1:]
+            PUBLIC_PATH = get_config_value("server/public_path")
+            FILE_URL = f"{PUBLIC_PATH}{url}"
+            if os.path.isfile(FILE_URL):
+                mimetype = mimetypes.guess_type(FILE_URL)[0]
+                with open(FILE_URL, "rb") as f:
+                    return (
+                        Response(f.read(), headers={"Content-type": f"{mimetype}"}),
+                        None,
+                    )
             else:
                 return error(404, f"File {url} not found."), None
         route_list = route.split("/")
@@ -55,7 +63,10 @@ def route_exists_and_is_valid(url: str, route_patterns: dict, matchers: dict):
                         else:
                             return route, variables
                     else:
-                        return error(400, "Invalid request"), None
+                        return (
+                            error(400, get_config_value("server/errors/messages/400")),
+                            None,
+                        )
                 else:
                     var_name = matcher.split(":")[0]
                     variables[var_name] = url_list[i]
@@ -65,4 +76,21 @@ def route_exists_and_is_valid(url: str, route_patterns: dict, matchers: dict):
                         return route, variables
             else:
                 break
-    return error(404, "Not found"), None
+    return error(404, get_config_value("server/errors/messages/404")), None
+
+
+def start_message_server(handler: Callable, port: int):
+    async def message_handler(websocket, path, handler: Callable):
+        async for data in websocket:
+            message = Message(websocket, path, data)
+            await handler(message)
+
+    try:
+        server = websockets.serve(
+            partial(message_handler, handler=handler), "localhost", port
+        )
+        asyncio.get_event_loop().run_until_complete(server)
+        asyncio.get_event_loop().run_forever()
+    except KeyboardInterrupt:
+        asyncio.get_event_loop().stop()
+        print(f"Message server on port {port} stopped.")
