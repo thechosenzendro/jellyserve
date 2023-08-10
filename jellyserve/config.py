@@ -25,27 +25,14 @@ default_config = {
 
 
 def generate_config(config):
-    runtime.config = default_config
-
-    def get_all_keys(config, path=None):
-        if path is None:
-            path = []
-
-        keys = []
-        for key, value in config.items():
-            current_path = path + [key]
-            keys.append("/".join(current_path))
-            if isinstance(value, dict):
-                keys.extend(get_all_keys(value, current_path))
-        return keys
-
-    paths = get_all_keys(config)
-    for path in paths:
-        set_config_value(path, get_config_value(path))
+    runtime.config = config
 
 
 def get_config_value(path_to_value: str):
-    return get_value(runtime.config, path_to_value)
+    result = get_value(runtime.config, path_to_value)
+    if result is None:
+        result = get_value(default_config, path_to_value)
+    return result
 
 
 def get_value(dict: dict, path_to_value: str):
@@ -55,7 +42,7 @@ def get_value(dict: dict, path_to_value: str):
         for key in keys:
             result = result[key]
         return result
-    except (KeyError, TypeError):
+    except (KeyError, TypeError) as e:
         return None
 
 

@@ -9,14 +9,17 @@ from .exceptions import (
 )
 from .internals import route_exists_and_is_valid, start_message_server
 from .response import Response, generate_component, error
+from .request import Request
 from .config import generate_config, get_config_value
+from urllib.parse import urlparse
 
 
 class JellyServe:
-    def __init__(self):
+    def __init__(self, config):
         self.routes = {}
         self.matchers = {}
         self.messages = {}
+        generate_config(config)
 
     def route(self, url: str, method: str = "GET") -> Callable:
         def route_decorator(func: Callable):
@@ -57,7 +60,7 @@ class JellyServe:
 
         return message_server_decorator
 
-    def run(self, hostname: str, port: int, config: dict = {}) -> None:
+    def run(self, hostname: str, port: int) -> None:
         class Server(HTTPServer):
             def __init__(self, server_adress, request_handler, app):
                 self.app = app
@@ -67,20 +70,34 @@ class JellyServe:
             def _handle_request(self):
                 matchers = self.server.app.matchers
                 routes = self.server.app.routes
-
-                # TODO: Make this code nicer
+                parsed_url = urlparse(self.path)
+                path = parsed_url.path
+                raw_url_params = parsed_url.query.split("&")
+                url_params = {}
+                # TODO: Delete the entire codebase and start from scratch :/
                 url_matching_result, variables = route_exists_and_is_valid(
-                    self.path, routes, matchers
+                  path, routes, matchers
                 )
 
+                for param in raw_url_params:
+                    if not param == "":
+                        param_pair = param.split("=")
+                        if len(param_pair) == 2:
+                            url_params[param_pair[0]] = param_pair[1]
+                        elif len(param_pair) == 1:
+                            url_params[param_pair[0]] = True
+                request_body = ""
+                if self.command == "POST":
+                    content_length = int(self.headers.get('Content-Length', 0))
+                    request_body = self.rfile.read(content_length)
                 if not isinstance(url_matching_result, Response):
                     response = routes[url_matching_result]["func"](
-                        self, *variables.values()
+                        Request(url_params, request_body), *variables.values()
                     )
                     if not self.command == routes[url_matching_result]["method"]:
                         response = error(
-                            405, get_config_value("server/errors/messages/405")
-                        )
+                            405, get_config_value("server/errors/messages/405"))
+
                 else:
                     response = url_matching_result
                 is_response = isinstance(response, Response)
@@ -97,8 +114,9 @@ class JellyServe:
                     elif isinstance(content, str):
                         self.wfile.write(bytes(content, "utf-8"))
                     elif isinstance(content, dict) or isinstance(content, list):
-                        content = json.dumps(content)
-                        self.wfile.write(bytes(content, "utf-8"))
+                        content = json.dumps(content, ensure_ascii=False).encode("utf-8")
+
+                        self.wfile.write(bytes(content.decode(), "utf-8"))
 
             def do_GET(self):
                 self._handle_request()
@@ -108,7 +126,6 @@ class JellyServe:
 
         web_server = Server((hostname, port), Handler, self)
 
-        generate_config(config)
 
         for message_port, message_handler in self.messages.items():
             multiprocessing.Process(

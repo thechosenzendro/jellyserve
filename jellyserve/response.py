@@ -40,7 +40,7 @@ def template(template_location: str, title: str = "JellyServe Page") -> Response
             return error(501, f"{file_extension} files not supported")
 
 
-def error(status: int, message: str = ...) -> None:
+def error(status: int, message: str = ...) -> Response:
     ERROR_TEMPLATE_PATH = get_config_value("server/errors/template_path")
     with open(ERROR_TEMPLATE_PATH) as template:
         html = (
@@ -51,15 +51,21 @@ def error(status: int, message: str = ...) -> None:
         return Response(status=status, content=html)
 
 
+def redirect(status: int, redirect_url: str) -> Response:
+    return Response(status=status, headers={"Location": redirect_url})
+
 def generate_component(
     url: str,
-    title: str = get_config_value("templates/default_title"),
+    title: str = "NO_TITLE",
 ) -> str:
     component_name = os.path.basename(url).replace(".svelte", "")
+
     RUNTIME_PATH = get_config_value("server/runtime_path")
     TEMPLATES_PATH = get_config_value("templates/templates_path")
     FRONTEND_PATH = get_config_value("templates/frontend_path")
     RUNTIME_URL = get_config_value("server/runtime_url")
+    if title == "NO_TITLE":
+        title = get_config_value("templates/default_title")
     os.makedirs(f"{RUNTIME_PATH}{component_name}", exist_ok=True)
     with open(
         f"{RUNTIME_PATH}{component_name}/template.js", "w+", encoding="utf-8"

@@ -1,5 +1,6 @@
 from app import app
-from config import config
-import routes, matchers, messages
+import routes
+import matchers
+import messages
 
-app.run("localhost", 1407, config)
+app.run("localhost", 1407)

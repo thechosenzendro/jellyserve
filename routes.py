@@ -1,5 +1,6 @@
 from app import app
-from jellyserve.response import template
+from jellyserve.response import template, redirect
+from jellyserve.forms import form_data
 
 
 @app.route("/")
@@ -30,3 +31,21 @@ def sveltetest(request):
 @app.route("/api", method="POST")
 def api(request):
     return [{"WOW": "API?"}, {"Nene": "JJ"}]
+
+
+@app.route("/hidden")
+def hidden(request):
+    try:
+        if request.url_params["hidden"] == "False":
+            return template("frontend/Hidden.svelte")
+        else:
+            return "Still hidden!"
+    except KeyError:
+        return "Still hidden!"
+
+
+@app.route("/hidden/posted", method="POST")
+def post(request):
+    data = form_data(request.body)
+    print(data)
+    return redirect(301, "/sveltetest")
