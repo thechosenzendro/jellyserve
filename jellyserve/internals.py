@@ -3,7 +3,11 @@ from .response import error, Response
 from .messages import Message
 from .config import get_config_value
 from typing import Callable
-import re, os, mimetypes, asyncio, websockets
+import re
+import os
+import mimetypes
+import asyncio
+import websockets
 from functools import partial
 
 
@@ -26,11 +30,11 @@ def route_exists_and_is_valid(url: str, route_patterns: dict, matchers: dict):
 
         if re.fullmatch(r"^.*\..*$", url):
             url = url[1:]
-            PUBLIC_PATH = get_config_value("server/public_path")
-            FILE_URL = f"{PUBLIC_PATH}{url}"
-            if os.path.isfile(FILE_URL):
-                mimetype = mimetypes.guess_type(FILE_URL)[0]
-                with open(FILE_URL, "rb") as f:
+            public_path = get_config_value("server/public_path")
+            file_url = f"{public_path}{url}"
+            if os.path.isfile(file_url):
+                mimetype = mimetypes.guess_type(file_url)[0]
+                with open(file_url, "rb") as f:
                     return (
                         Response(f.read(), headers={"Content-type": f"{mimetype}"}),
                         None,
@@ -94,3 +98,16 @@ def start_message_server(handler: Callable, port: int):
     except KeyboardInterrupt:
         asyncio.get_event_loop().stop()
         print(f"Message server on port {port} stopped.")
+
+
+def keys_to_dict(keys: str) -> dict:
+    entry_list = keys.split("&")
+    entries = {}
+    for entry in entry_list:
+        try:
+            entry_name, entry_value = entry.split("=")
+            entries[entry_name] = entry_value
+        except ValueError:
+            entry_name = entry.split("=")[0]
+            entries[entry_name] = True
+    return entries

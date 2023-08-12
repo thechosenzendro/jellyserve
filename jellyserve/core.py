@@ -1,13 +1,16 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Callable
-import shutil, os, multiprocessing, json
+import shutil
+import os
+import multiprocessing
+import json
 from .exceptions import (
     RouteAlreadyDefinedError,
     UnknownRouteMethodError,
     MatcherAlreadyDefinedError,
     MessageAlreadyDefinedError,
 )
-from .internals import route_exists_and_is_valid, start_message_server
+from .internals import route_exists_and_is_valid, start_message_server, keys_to_dict
 from .response import Response, generate_component, error
 from .request import Request
 from .config import generate_config, get_config_value
@@ -72,27 +75,20 @@ class JellyServe:
                 routes = self.server.app.routes
                 parsed_url = urlparse(self.path)
                 path = parsed_url.path
-                raw_url_params = parsed_url.query.split("&")
-                url_params = {}
+                url_params = keys_to_dict(parsed_url.query)
+                cookies = keys_to_dict(self.headers.get('Cookie'))
                 # TODO: Delete the entire codebase and start from scratch :/
                 url_matching_result, variables = route_exists_and_is_valid(
                   path, routes, matchers
                 )
 
-                for param in raw_url_params:
-                    if not param == "":
-                        param_pair = param.split("=")
-                        if len(param_pair) == 2:
-                            url_params[param_pair[0]] = param_pair[1]
-                        elif len(param_pair) == 1:
-                            url_params[param_pair[0]] = True
-                request_body = ""
+                request_body = bytes("", "utf-8")
                 if self.command == "POST":
                     content_length = int(self.headers.get('Content-Length', 0))
                     request_body = self.rfile.read(content_length)
                 if not isinstance(url_matching_result, Response):
                     response = routes[url_matching_result]["func"](
-                        Request(url_params, request_body), *variables.values()
+                        Request(url_params, request_body, cookies), *variables.values()
                     )
                     if not self.command == routes[url_matching_result]["method"]:
                         response = error(
@@ -126,39 +122,38 @@ class JellyServe:
 
         web_server = Server((hostname, port), Handler, self)
 
-
         for message_port, message_handler in self.messages.items():
             multiprocessing.Process(
                 target=start_message_server, args=(message_handler, message_port)
             ).start()
             print(f"Message server started at ws://localhost:{message_port}")
 
-        SERVER_MODE = get_config_value("server/mode")
-        if not (SERVER_MODE == "dev" or SERVER_MODE == "prod"):
+        server_mode = get_config_value("server/mode")
+        if not (server_mode == "dev" or server_mode == "prod"):
             raise ValueError(
-                f'There is no "{SERVER_MODE}" mode. Only dev and prod modes are allowed.'
+                f'There is no "{server_mode}" mode. Only dev and prod modes are allowed.'
             )
-        print(f"Running in {SERVER_MODE} mode")
-        if SERVER_MODE == "prod":
+        print(f"Running in {server_mode} mode")
+        if server_mode == "prod":
             print("Generating components...")
-            FRONTEND_PATH = get_config_value("templates/frontend_path")
-            frontend_files = os.listdir(FRONTEND_PATH)
+            frontend_path = get_config_value("templates/frontend_path")
+            frontend_files = os.listdir(frontend_path)
             components = [
                 frontend_file
                 for frontend_file in frontend_files
                 if frontend_file.endswith(".svelte")
             ]
             for component in components:
-                generate_component(f"{FRONTEND_PATH}{component}")
+                generate_component(f"{frontend_path}{component}")
         print(f"Web server started at http://{hostname}:{port}")
         try:
             web_server.serve_forever()
-        except:
+        except KeyboardInterrupt:
             pass
         web_server.server_close()
         print("Stopping web server...")
-        RUNTIME_PATH = get_config_value("server/runtime_path")
-        if os.path.exists(RUNTIME_PATH):
-            shutil.rmtree(RUNTIME_PATH)
+        runtime_path = get_config_value("server/runtime_path")
+        if os.path.exists(runtime_path):
+            shutil.rmtree(runtime_path)
         print("Web server stopped.")
         quit()

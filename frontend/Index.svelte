@@ -2,7 +2,9 @@
   import { onMount } from "svelte";
 
   const socket = new WebSocket("ws://localhost:8080");
-  let data;
+  export let data;
+  console.log(data);
+  let message_data;
   let message = "";
   let api_response = "";
   onMount(async () => {
@@ -18,7 +20,7 @@
 
   socket.addEventListener("message", function (event) {
     console.log(event.data);
-    data = event.data;
+    message_data = event.data;
     return false;
   });
 
@@ -41,7 +43,7 @@
 </script>
 
 <h1>Chat</h1>
-<h1>{data}</h1>
+<h1>{message_data}</h1>
 <h1>API: {api_response}</h1>
 <input type="text" bind:value={message} placeholder="Message to be sent" />
 <button on:click={contactServer}>Send</button>

@@ -1,6 +1,9 @@
 from app import app
-from jellyserve.response import template, redirect
+from jellyserve.request import Request
+from jellyserve.response import template, redirect, populate
 from jellyserve.forms import form_data
+
+count = 0
 
 
 @app.route("/")
@@ -24,7 +27,8 @@ def test2(request, test_id):
 
 
 @app.route("/sveltetest")
-def sveltetest(request):
+def sveltetest(request: Request):
+    print(request.body, request.url_params, request.cookies)
     return template("frontend/Index.svelte")
 
 
@@ -49,3 +53,10 @@ def post(request):
     data = form_data(request.body)
     print(data)
     return redirect(301, "/sveltetest")
+
+
+@app.route("/populated")
+def populated(request):
+    global count
+    count = count + 1
+    return populate("frontend/Populated.svelte", {"count": count})
