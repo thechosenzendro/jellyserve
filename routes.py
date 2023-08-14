@@ -2,7 +2,7 @@ from app import app
 from jellyserve.request import Request
 from jellyserve.response import template, redirect, populate
 from jellyserve.forms import form_data
-
+from jellyserve.db import DB, Query
 count = 0
 
 
@@ -59,4 +59,6 @@ def post(request):
 def populated(request):
     global count
     count = count + 1
-    return populate("frontend/Populated.svelte", {"count": count})
+    db = DB("dev.db")
+    with Query(db, "SELECT * FROM Users;") as result:
+        return populate("frontend/Populated.svelte", {"count": count, "response": result})
