@@ -1,27 +1,50 @@
 import sqlite3
+import functools
+
+#DB stuff
+class BaseDBConnector:
+    def __init__(self) -> None:
+        self.query = functools.partial(Query, self)
+
+    def connect(self):
+        pass
+
+    def execute(self):
+        pass
+
+    def close(self):
+        pass
 
 
-class DB:
+class SQLite(BaseDBConnector):
     def __init__(self, db_location: str) -> None:
-        self.db = db_location
+        self.db_location = db_location
+        super().__init__()
 
-
-class Query:
-    def __init__(self, orm: DB, query: str) -> None:
-        self.orm = orm
-        self._query = query
-            
-    def __enter__(self):
-        print("Entering!")
-        self.db_connection = sqlite3.connect(self.orm.db)
+    def connect(self):
+        self.db_connection = sqlite3.connect(self.db_location)
         self.db_cursor = self.db_connection.cursor()
-        self.db_cursor.execute(self._query)
+
+    def execute(self, _query: str, _query_params: tuple = ()):
+        with self.db_connection:
+            self.db_cursor.execute(_query, _query_params)
         _result = self.db_cursor.fetchall()
         self.db_cursor.close()
         return _result
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def close(self):
         if self.db_connection:
-            print("Closing!")
             self.db_connection.close()
-            
+
+class Query:
+    def __init__(self, connector, query: str, query_params: tuple = ()) -> None:
+        self.connector = connector
+        self._query = query
+        self._query_params = query_params
+
+    def __enter__(self):
+        self.connector.connect()
+        return self.connector.execute(self._query, self._query_params)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.connector.close()

@@ -111,3 +111,12 @@ def keys_to_dict(keys: str) -> dict:
             entry_name = entry.split("=")[0]
             entries[entry_name] = True
     return entries
+
+
+def dict_to_keys(_dict: dict) -> str:
+    keys_string = ""
+    
+    for key_name, key_value in _dict.items():
+        keys_string = keys_string + f"{key_name}={key_value};"
+    
+    return keys_string

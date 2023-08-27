@@ -3,7 +3,7 @@ import jellyserve.runtime as runtime
 default_config = {
     "server": {
         "mode": "dev",
-        "allowed_methods": ["GET", "POST"],
+        "allowed_methods": ["GET", "POST", "PATCH", "DELETE"],
         "public_path": "public/",
         "runtime_path": "public/.runtime/",
         "runtime_url": ".runtime/",
@@ -15,6 +15,7 @@ default_config = {
                 "405": "Method not allowed",
             },
         },
+        "default_headers": {"Content-type": "text/html; charset=utf-8"}
     },
     "templates": {
         "frontend_path": "frontend/",
@@ -28,16 +29,16 @@ def generate_config(config):
     runtime.config = config
 
 
-def get_config_value(path_to_value: str):
+def get_config_value(path_to_value: str) -> str | int | dict | list | None:
     result = get_value(runtime.config, path_to_value)
     if result is None:
         result = get_value(default_config, path_to_value)
     return result
 
 
-def get_value(dict: dict, path_to_value: str):
+def get_value(_dict: dict, path_to_value: str):
     keys = path_to_value.split("/")
-    result = dict
+    result = _dict
     try:
         for key in keys:
             result = result[key]
