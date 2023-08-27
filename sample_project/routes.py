@@ -1,4 +1,4 @@
-from app import app
+from sample_project.app import app
 from jellyserve.request import Request
 from jellyserve.response import template, redirect, populate
 from jellyserve.forms import form_data

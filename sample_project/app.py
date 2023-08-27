@@ -1,5 +1,5 @@
 from jellyserve.core import JellyServe
-from config import config
+from sample_project.config import config
 
 
 app = JellyServe(config)

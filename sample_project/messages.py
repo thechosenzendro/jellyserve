@@ -1,4 +1,4 @@
-from app import app
+from sample_project.app import app
 from jellyserve.messages import Message
 
 
