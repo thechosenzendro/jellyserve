@@ -1,7 +1,8 @@
 import sqlite3
 import functools
 
-#DB stuff
+
+# DB stuff
 class BaseDBConnector:
     def __init__(self) -> None:
         self.query = functools.partial(Query, self)
@@ -23,6 +24,14 @@ class SQLite(BaseDBConnector):
 
     def connect(self):
         self.db_connection = sqlite3.connect(self.db_location)
+
+        def dict_factory(cursor, row):
+            d = {}
+            for idx, col in enumerate(cursor.description):
+                d[col[0]] = row[idx]
+            return d
+
+        self.db_connection.row_factory = dict_factory
         self.db_cursor = self.db_connection.cursor()
 
     def execute(self, _query: str, _query_params: tuple = ()):
@@ -36,8 +45,11 @@ class SQLite(BaseDBConnector):
         if self.db_connection:
             self.db_connection.close()
 
+
 class Query:
-    def __init__(self, connector, query: str, query_params: tuple = ()) -> None:
+    def __init__(
+        self, connector: sqlite3.Connection, query: str, query_params: tuple = ()
+    ) -> None:
         self.connector = connector
         self._query = query
         self._query_params = query_params

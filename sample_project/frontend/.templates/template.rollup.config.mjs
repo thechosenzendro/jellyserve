@@ -1,17 +1,19 @@
-import svelte from '%jellyserve.rollup.svelte.path%';
-import resolve from '%jellyserve.rollup.resolve.path%';
+import svelte from '$svelte_path';
+import resolve from '$resolve_path';
+import css from '$css_path'
 
 export default {
-  input: '%jellyserve.component.template.js%',
+  input: '$js_input',
   output: {
-    file: '%jellyserve.component.compiled%',
+    file: '$js_output',
     format: 'iife',
     name: 'app',
   },
   plugins: [
     svelte({
-      include: '%jellyserve.frontend.path%/*.svelte',
+      include: '$frontend_path/**/*.svelte',
     }),
     resolve({ browser: true }),
+    css({ output: "output.css" })
   ],
 };

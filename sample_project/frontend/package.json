@@ -10,6 +10,8 @@
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^15.1.0",
     "rollup": "^3.27.0",
-    "rollup-plugin-svelte": "^7.1.6"
+    "rollup-plugin-svelte": "^7.1.6",
+    "rollup-plugin-css-only": "^4.3.0"
+    
   }
 }

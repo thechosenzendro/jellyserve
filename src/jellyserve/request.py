@@ -1,7 +1,10 @@
+from typing import Any
+
+
 class Request:
     def __init__(self, url_params: dict, body: bytes, cookies: dict):
-        self.url_params = url_params
-        self.body = body
+        self.url_params = URLParams(url_params)
+        self.body = Body(body)
         self.cookies = Cookies(cookies)
 
 
@@ -65,9 +68,12 @@ class Cookies:
         except IndexError:
             raise StopIteration
 
-    def get(self, name: str) -> str | None:
+    def __getitem__(self, name: str) -> Any:
+        return self.get(name)
+
+    def get(self, name: str) -> Any:
         try:
-            return str(self.cookies[name].value)
+            return self.cookies[name].value
         except:
             return None
 
@@ -76,3 +82,44 @@ class Cookies:
 
     def delete(self, name: str):
         self.cookies[name].max_age = "0"
+
+
+class URLParams:
+    def __init__(self, url_params: dict) -> None:
+        self.url_params = url_params
+
+    def __iter__(self):
+        self._current_index = 0
+        return self
+
+    def __next__(self):
+        try:
+            _result = list(self.url_params.values())[self._current_index]
+            self._current_index += 1
+            return _result
+        except IndexError:
+            raise StopIteration
+
+    def __getitem__(self, name: str) -> Any:
+        return self.get(name)
+
+    def get(self, name):
+        try:
+            return self.url_params[name]
+        except:
+            return None
+
+
+class Body:
+    def __init__(self, body: bytes) -> None:
+        self.body = body
+
+    def __str__(self) -> str:
+        return str(self.body)
+
+    def to_form_data(self) -> dict:
+        from urllib.parse import unquote_plus
+        from .internals import keys_to_dict
+
+        body_str = unquote_plus(self.body.decode(), encoding="utf-8")
+        return keys_to_dict(body_str)

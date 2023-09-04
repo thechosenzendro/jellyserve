@@ -1,14 +1,22 @@
-from sample_project.app import app
+from app import app
 from jellyserve.request import Request
 from jellyserve.response import template, redirect, populate
-from jellyserve.forms import form_data
-from jellyserve.db import DB, Query
-count = 0
+from jellyserve.db import SQLite
 
 
-@app.route("/")
+@app.middleware(group="test")
+def middleware(request: Request):
+    print(f"Request: {request}")
+
+
+@app.middleware(regex=r"/.*")
+def catch_all_middleware(request: Request):
+    print("Catch all!")
+
+
+@app.route("/", group="test")
 def index(request):
-    return "Wow, Thats index!"
+    return "Wow, Thats index!.."
 
 
 @app.route("/example")
@@ -38,27 +46,22 @@ def api(request):
 
 
 @app.route("/hidden")
-def hidden(request):
-    try:
-        if request.url_params["hidden"] == "False":
-            return template("frontend/Hidden.svelte")
-        else:
-            return "Still hidden!"
-    except KeyError:
+def hidden(request: Request):
+    if request.url_params.get("hidden") == "False":
+        return template("frontend/Hidden.svelte")
+    else:
         return "Still hidden!"
 
 
 @app.route("/hidden/posted", method="POST")
-def post(request):
-    data = form_data(request.body)
+def post(request: Request):
+    data = request.body.to_form_data()
     print(data)
     return redirect(301, "/sveltetest")
 
 
 @app.route("/populated")
 def populated(request):
-    global count
-    count = count + 1
-    db = DB("dev.db")
-    with Query(db, "SELECT * FROM Users;") as result:
-        return populate("frontend/Populated.svelte", {"count": count, "response": result})
+    db = SQLite("dev.db")
+    with db.query("SELECT * FROM Users;") as result:
+        return populate("frontend/Populated.svelte", {"response": result})

@@ -1,6 +1,6 @@
 [project]
 name = "jellyserve"
-version = "0.0.1"
+version = "0.2.0"
 authors = [{ name = "Adam Zaoral", email = "the.chosen.zendro@gmail.com" }]
 description = "simple python web framework with support for .svelte files"
 readme = "README.md"
@@ -9,7 +9,9 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: GNU General Public License (GPL)",
-    "Operating System :: OS Independent",
+    "Operating System :: POSIX :: Linux",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
 ]
 
 [project.urls]

@@ -1,5 +1,5 @@
 <script>
-export let data;
+  export let data;
 </script>
-<h1>Count: {data.count}</h1>
+
 <h1>Response: {JSON.stringify(data.response)}</h1>

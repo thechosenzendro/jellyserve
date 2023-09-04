@@ -1,9 +1,9 @@
-import Component from '%jellyserve.component.not-compiled%';
+import Component from '$component_code';
 
 const app = new Component({
     target: document.body,
     props: {
-        data: "%jellyserve.component.data%"
+        data: "#component_data"
     }
 });
 

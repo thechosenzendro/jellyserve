@@ -1,7 +1,8 @@
-/src/jellyserve/frontend/node_modules
-/src/jellyserve/frontend/package-lock.json
-/src/jellyserve/public/.runtime
-jellyserve/__pycache__
-/.vscode
 /dist
 /src/jellyserve.egg-info
+/sample_project/__pycache__
+/sample_project/frontend/node_modules
+/sample_project/frontend/package-lock.json
+/sample_project/jellyserve
+/sample_project/public/.runtime
+/src/jellyserve/__pycache__
