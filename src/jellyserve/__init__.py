@@ -1,26 +1,30 @@
 from typing import Callable
+import asyncio
 import shutil
 import os
 import multiprocessing
 import sys
 from ._exceptions import UnknownRouteMethodError
-from .internals import start_message_server
 from .response import generate_component
 from ._config import config
 from ._routes import Route
+from ._matchers import Matcher
+from .messages import MessageServer
+import uvicorn
 
 
 class JellyServe:
     def __init__(self, _config: dict | None = None):
-        self.routes = {}
-        self.matchers = {}
-        self.messages = {}
+        self.routes: dict[str, Route] = {}
+        self.matchers: dict[str, Matcher] = {}
+        self.messages: dict[int, MessageServer] = {}
         self.middlewares = {"by_group": {}, "by_regex": {}}
         config.set_config(_config)
 
     def route(self, pattern: str, method: str = "GET", group: str = "") -> Callable:
         def route_decorator(func: Callable):
-            allowed_methods: dict = config.get_config_value("server/allowed_methods")
+            allowed_methods: dict = config.get_config_value(
+                "server/allowed_methods")
 
             if method not in allowed_methods:
                 raise UnknownRouteMethodError(
@@ -110,13 +114,15 @@ class JellyServe:
 
         return middleware_decorator
 
-    def run(self, hostname: str, port: int) -> None:
-        from ._server import Server, Handler
+    def run(self) -> None:
+        from ._server import Server
 
-        for message_port, message_handler in self.messages.items():
+        for message_port, message_server in self.messages.items():
+
             multiprocessing.Process(
-                target=start_message_server, args=(message_handler, message_port)
+                target=message_server.start, args=(message_port,)
             ).start()
+
             print(f"Message server started at ws://localhost:{message_port}")
 
         server_mode = config.get_config_value("server/mode")
@@ -141,15 +147,18 @@ class JellyServe:
             for component in components:
                 generate_component(f"{frontend_path}/{component}")
 
-        web_server = Server((hostname, port), Handler, self)
+        web_server = Server(self)
+
+        hostname: str = config.get_config_value("server/hostname")
+        port: int = config.get_config_value("server/port")
 
         print(f"Web server started at http://{hostname}:{port}")
         try:
-            web_server.serve_forever()
+            uvicorn.run(web_server, port=port, log_level="info")
         except KeyboardInterrupt:
-            pass
-        web_server.server_close()
-        print("Stopping web server...")
+            web_server.should_exit = True
+            print("Stopping web server...")
+
         runtime_path = config.get_config_value("server/runtime_path")
         if os.path.exists(runtime_path):
             shutil.rmtree(runtime_path)

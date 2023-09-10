@@ -7,15 +7,20 @@ from jellyserve.db import SQLite
 @app.middleware(group="test")
 def middleware(request: Request):
     print(f"Request: {request}")
+    request.cookies.set("test", "SS")
+    return request
 
 
 @app.middleware(regex=r"/.*")
 def catch_all_middleware(request: Request):
     print("Catch all!")
+    request.cookies.set("test", "SS2")
+    return request
 
 
 @app.route("/", group="test")
-def index(request):
+def index(request: Request):
+    print(request.cookies.get("test"))
     return "Wow, Thats index!.."
 
 
@@ -47,6 +52,7 @@ def api(request):
 
 @app.route("/hidden")
 def hidden(request: Request):
+    print(f"Hidden: {request.url_params.get('hidden')}")
     if request.url_params.get("hidden") == "False":
         return template("frontend/Hidden.svelte")
     else:

@@ -44,6 +44,12 @@
 
 <h1>Chat</h1>
 <h1>{message_data}</h1>
-<h1>API: {api_response}</h1>
+<h1 class="test">API: {api_response}</h1>
 <input type="text" bind:value={message} placeholder="Message to be sent" />
 <button on:click={contactServer}>Send</button>
+
+<style>
+  .test {
+    background-color: pink;
+  }
+</style>

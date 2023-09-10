@@ -1,6 +1,8 @@
 default_config = {
     "server": {
         "mode": "dev",
+        "hostname": "localhost",
+        "port": 1407,
         "allowed_methods": ["GET", "POST", "PATCH", "DELETE"],
         "public_path": "public",
         "runtime_path": "public/.runtime",

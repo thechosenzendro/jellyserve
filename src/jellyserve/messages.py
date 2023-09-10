@@ -1,3 +1,5 @@
+from typing import Callable
+
 class Message:
     def __init__(self, websocket, path, data) -> None:
         self.websocket = websocket
@@ -27,3 +29,24 @@ class MessageServer:
         handler = getattr(handler_module, self.handler)
 
         return handler
+
+    def start(self, port: int):
+        import websockets
+        import functools
+        import asyncio
+
+        async def message_handler(websocket, path, handler: MessageServer):
+            async for data in websocket:
+                message = Message(websocket, path, data)
+                await handler.get_handler()(message)
+
+        try:
+            server = websockets.serve(
+                functools.partial(message_handler, handler=self), "localhost", port
+            )
+            asyncio.get_event_loop().run_until_complete(server)
+            asyncio.get_event_loop().run_forever()
+
+        except KeyboardInterrupt:
+            asyncio.get_event_loop().stop()
+            print(f"Message server on port {port} stopped.")

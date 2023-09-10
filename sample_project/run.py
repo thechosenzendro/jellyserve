@@ -1,6 +1,7 @@
 from app import app
-import routes as routes
-import matchers as matchers
-import messages as messages
+import routes
+import matchers
+import messages
 
-app.run("localhost", 1407)
+if __name__ == "__main__":
+    app.run()

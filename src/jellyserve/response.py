@@ -3,7 +3,7 @@ import os
 import json
 from string import Template
 from ._config import config
-from .request import Cookie, Cookies
+from .request import Cookies
 
 
 class Response:
@@ -156,11 +156,14 @@ def redirect(
         final_headers[header_name] = header_value
     return Response(status=status, headers=final_headers, cookies=cookies)
 
+def abspath(string: str, with_file: bool = False) -> str:
+    if with_file:
+        return "file:///" + os.path.abspath(string).replace('\\', '/')
+    else:
+        return os.path.abspath(string).replace('\\', '/')
 
 def generate_component(url: str, context=None) -> str:
-    print(url)
     component_name = os.path.basename(url).replace(".svelte", "")
-    print(url, component_name)
     runtime_path = config.get_config_value("server/runtime_path")
     templates_path = config.get_config_value("templates/templates_path")
     frontend_path = config.get_config_value("templates/frontend_path")
@@ -174,12 +177,12 @@ def generate_component(url: str, context=None) -> str:
         js_template_path, "r", encoding="utf-8"
     ) as js_template:
         js_template = Template(js_template.read())
-        js_template = js_template.substitute(component_code=os.path.abspath(url))
+        js_template = js_template.substitute(component_code=abspath(url))
         js.write(js_template)
 
     if context is not None:
         populated_template_path = (
-            f"{runtime_path}{component_name}/populated_template.js"
+            f"{runtime_path}/{component_name}/populated_template.js"
         )
         with open(js_path, "r") as js, open(
             populated_template_path,
@@ -197,28 +200,27 @@ def generate_component(url: str, context=None) -> str:
         ) as rollup_template:
             if context is not None:
                 template_js_path = (
-                    os.path.abspath(
-                        f"{runtime_path}{component_name}/populated_template.js"
+                    abspath(
+                        f"{runtime_path}/{component_name}/populated_template.js"
                     ),
                 )
             else:
                 template_js_path = (
-                    os.path.abspath(f"{runtime_path}/{component_name}/template.js"),
+                    abspath(f"{runtime_path}/{component_name}/template.js"),
                 )
             rollup_template = Template(rollup_template.read())
             rollup_template = rollup_template.substitute(
-                svelte_path=os.path.abspath(
-                    f"{frontend_path}/node_modules/rollup-plugin-svelte/index.js"
+                svelte_path=abspath(
+                    f"{frontend_path}/node_modules/rollup-plugin-svelte/index.js",
+                    with_file=True
                 ),
-                resolve_path=os.path.abspath(
-                    f"{frontend_path}/node_modules/@rollup/plugin-node-resolve/dist/es/index.js"
-                ),
-                css_path=os.path.abspath(
-                    f"{frontend_path}/node_modules/rollup-plugin-css-only/dist/index.mjs"
+                resolve_path=abspath(
+                    f"{frontend_path}/node_modules/@rollup/plugin-node-resolve/dist/es/index.js",
+                    with_file=True
                 ),
                 js_input="".join(template_js_path),
-                js_output=os.path.abspath(f"{runtime_path}/{component_name}/output.js"),
-                frontend_path=os.path.abspath(frontend_path),
+                js_output=abspath(f"{runtime_path}/{component_name}/output.js"),
+                frontend_path=abspath(frontend_path),
             )
 
             rollup.write(rollup_template)
@@ -228,10 +230,9 @@ def generate_component(url: str, context=None) -> str:
         )
     elif os.name == "nt":
         os.system(
-            f'{os.path.abspath(f"{frontend_path}/node_modules/.bin/rollup.cmd")} -c {runtime_path}/{component_name}/rollup.config.mjs'
+            f'{abspath(f"{frontend_path}/node_modules/.bin/rollup.cmd")} -c {runtime_path}/{component_name}/rollup.config.mjs'
         )
     html_path = f"{runtime_path}/{component_name}/template.html"
-    print(html_path)
     html_template_path = f"{frontend_path}/.templates/template.html"
     with open(html_path, "w+", encoding="utf-8") as html, open(
         html_template_path, "r", encoding="utf-8"
@@ -239,7 +240,6 @@ def generate_component(url: str, context=None) -> str:
         html_result = Template(html_template.read())
         html_result = html_result.substitute(
             component_code=f"{runtime_url}{component_name}/output.js",
-            component_styles=f"{runtime_url}{component_name}/output.css",
         )
 
         html.write(html_result)

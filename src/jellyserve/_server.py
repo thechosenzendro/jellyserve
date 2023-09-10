@@ -1,36 +1,48 @@
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from .__init__ import JellyServe
 from http.cookies import SimpleCookie
+from typing import Callable
 import json
 import re
 from urllib.parse import urlparse
-
 from .request import Request
 from .response import Response, error
 from ._config import config
-from .internals import keys_to_dict, get_module
+from .internals import keys_to_dict
 from ._routes import Route
 
+class Server:
+    def __init__(self, app: JellyServe) -> None:
+        self.app = app
 
-class Handler(BaseHTTPRequestHandler):
-    def _handle_request(self):
+    async def __call__(self, scope, recieve, send: Callable):
         from .response import Error
         from ._middleware import Middleware
 
-        matchers = self.server.app.matchers
-        routes = self.server.app.routes
+
+        matchers = self.app.matchers
+        middlewares = self.app.middlewares
+        routes = self.app.routes
         locked = False
 
-        url = urlparse(self.path)
-        path = url.path
+        path = scope['path']
+        url_params = keys_to_dict(scope['query_string'].decode("utf-8"))
 
-        url_params = keys_to_dict(url.query)
+        cookies_headers = [cookie for cookie in scope["headers"] if cookie[0] == b"cookie"]
+        cookies = {}
 
-        cookies = SimpleCookie(self.headers.get("Cookie"))
+        if cookies_headers:
+            for cookie in cookies_headers:
+                cookie_name, cookie_value = cookie
+                cookies[cookie_name] = cookie_value
 
         result, variables = Route.get_from_url(path, routes, matchers)
-
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length)
+        
+        body = b""
+        more_body = True
+        while more_body:
+            event = await recieve()
+            body += event.get("body", b"")
+            more_body = event.get('more_body', False)
 
         response = result
 
@@ -40,42 +52,42 @@ class Handler(BaseHTTPRequestHandler):
 
         elif isinstance(result, Route):
             route = result
+            request = Request(url_params, body, cookies)
+
             if not locked:
                 if route.group:
                     middleware_run_result = True
                     for group in route.group.split(" "):
-                        middleware: Middleware = self.server.app.middlewares[
+                        middleware: Middleware = middlewares[
                             "by_group"
                         ][group]
-                        middleware_result = middleware.get_handler()(
-                            Request(url_params, body, cookies)
-                        )
+                        middleware_result = middleware.get_handler()(request)
 
                         if isinstance(middleware_result, Error):
                             middleware_run_result = middleware_result
                             break
+                        elif isinstance(middleware_result, Request):
+                            request = middleware_result
 
                     if isinstance(middleware_run_result, Error):
                         response = middleware_run_result
                         locked = True
             if not locked:
                 middleware_run_result = True
-                for middleware_pattern, handler in self.server.app.middlewares[
-                    "by_regex"
-                ].items():
+                for middleware_pattern, handler in middlewares["by_regex"].items():
                     if re.fullmatch(middleware_pattern, path):
-                        middleware_result = handler.get_handler()(
-                            Request(url_params, body, cookies)
-                        )
-                        if isinstance(middleware_result, Response):
+                        middleware_result = handler.get_handler()(request)
+                        if isinstance(middleware_result, Error):
                             middleware_run_result = middleware_result
                             break
-                if isinstance(middleware_run_result, Response):
+                        elif isinstance(middleware_result, Request):
+                            request = middleware_result
+                if isinstance(middleware_run_result, Error):
                     response = middleware_run_result
                     locked = True
 
             if not locked:
-                if not self.command == route.method:
+                if not scope["method"] == route.method:
                     error_message = config.get_config_value(
                         "server/errors/messages/405"
                     )
@@ -84,7 +96,7 @@ class Handler(BaseHTTPRequestHandler):
 
             if not locked:
                 response = route.get_handler()(
-                    Request(url_params, body, cookies),
+                    request,
                     *variables.values(),
                 )
 
@@ -92,38 +104,31 @@ class Handler(BaseHTTPRequestHandler):
         if not is_response:
             response = Response(response)
 
-        self.send_response(response.status)
+        headers = []
+
         if response.cookies:
             for cookie in response.cookies:
-                self.send_header("Set-Cookie", str(cookie))
+                headers.append((b"Set-Cookie", bytes(cookie)))
 
         for header, value in response.headers.items():
-            self.send_header(header, value)
-            self.end_headers()
+            headers.append((bytes(header, "utf-8"), bytes(value, "utf-8")))
+        
+
+        await send({
+            'type': 'http.response.start',
+            'status': response.status,
+            'headers': headers, 
+        })
 
         content = response.content
-        if isinstance(content, bytes):
-            self.wfile.write(content)
-        elif isinstance(content, str):
-            self.wfile.write(bytes(content, "utf-8"))
+
+        if isinstance(content, str):
+            content = bytes(content, "utf-8")
         elif isinstance(content, dict) or isinstance(content, list):
             content = json.dumps(content, ensure_ascii=False).encode("utf-8")
-            self.wfile.write(bytes(content.decode(), "utf-8"))
+            content = bytes(content.decode(), "utf-8")
 
-    def do_GET(self):
-        self._handle_request()
-
-    def do_POST(self):
-        self._handle_request()
-
-    def do_PATCH(self):
-        self._handle_request()
-
-    def do_DELETE(self):
-        self._handle_request()
-
-
-class Server(HTTPServer):
-    def __init__(self, server_adress: (str, int), request_handler: Handler, app):
-        self.app = app
-        super().__init__(server_adress, request_handler)
+        await send({
+            'type': 'http.response.body',
+            'body': content
+        })

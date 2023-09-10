@@ -1,5 +1,6 @@
 /dist
 /src/jellyserve.egg-info
+/src/__pycache__
 /sample_project/__pycache__
 /sample_project/frontend/node_modules
 /sample_project/frontend/package-lock.json
