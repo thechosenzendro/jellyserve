@@ -14,21 +14,12 @@ class Message:
 class MessageServer:
     def __init__(
         self,
-        module_name: str,
-        module_path: str,
-        handler: str,
+        handler: Callable,
     ) -> None:
-        self.module_name = module_name
-        self.module_path = module_path
         self.handler = handler
 
-    def get_handler(self):
-        from .internals import get_module
-
-        handler_module = get_module(self.module_name, self.module_path)
-        handler = getattr(handler_module, self.handler)
-
-        return handler
+    def __call__(self, *args, **kwargs):
+        return self.handler(*args, **kwargs)
 
     def start(self, port: int):
         import websockets
@@ -38,7 +29,7 @@ class MessageServer:
         async def message_handler(websocket, path, handler: MessageServer):
             async for data in websocket:
                 message = Message(websocket, path, data)
-                await handler.get_handler()(message)
+                await handler(message)
 
         try:
             server = websockets.serve(

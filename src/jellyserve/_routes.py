@@ -1,16 +1,14 @@
+from typing import Callable
+
 class Route:
     def __init__(
         self,
         pattern: str,
-        module_name: str,
-        module_path: str,
-        handler: str,
+        handler: Callable,
         method: str,
         group: str,
     ) -> None:
         self.pattern = pattern
-        self.module_name = module_name
-        self.module_path = module_path
         self.handler = handler
         self.method = method
         self.group = group
@@ -18,12 +16,8 @@ class Route:
     def __getitem__(self, name: str):
         return vars(self)[name]
 
-    def get_handler(self):
-        from .internals import get_module
-
-        handler_module = get_module(self.module_name, self.module_path)
-        handler = getattr(handler_module, self.handler)
-        return handler
+    def __call__(self, *args, **kwargs):
+        return self.handler(*args, **kwargs)
 
     @staticmethod
     def _get_from_pattern(pattern: str, routes: dict):
@@ -88,7 +82,7 @@ class Route:
                             )
 
                         matcher: Matcher = matchers[matcher_name]
-                        is_matching = matcher.get_handler()(url_part)
+                        is_matching = matcher(url_part)
 
                         if is_matching:
                             variables[var_name] = url_part

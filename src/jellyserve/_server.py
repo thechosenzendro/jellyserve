@@ -1,5 +1,4 @@
 from .__init__ import JellyServe
-from http.cookies import SimpleCookie
 from typing import Callable
 import json
 import re
@@ -27,11 +26,11 @@ class Server:
         path = scope['path']
         url_params = keys_to_dict(scope['query_string'].decode("utf-8"))
 
-        cookies_headers = [cookie for cookie in scope["headers"] if cookie[0] == b"cookie"]
+        cookie = [cookie for cookie in scope["headers"] if cookie[0] == b"cookie"]
         cookies = {}
 
-        if cookies_headers:
-            for cookie in cookies_headers:
+        if cookie:
+            for cookie in cookie:
                 cookie_name, cookie_value = cookie
                 cookies[cookie_name] = cookie_value
 
@@ -61,7 +60,7 @@ class Server:
                         middleware: Middleware = middlewares[
                             "by_group"
                         ][group]
-                        middleware_result = middleware.get_handler()(request)
+                        middleware_result = middleware(request)
 
                         if isinstance(middleware_result, Error):
                             middleware_run_result = middleware_result
@@ -76,7 +75,7 @@ class Server:
                 middleware_run_result = True
                 for middleware_pattern, handler in middlewares["by_regex"].items():
                     if re.fullmatch(middleware_pattern, path):
-                        middleware_result = handler.get_handler()(request)
+                        middleware_result = handler(request)
                         if isinstance(middleware_result, Error):
                             middleware_run_result = middleware_result
                             break
@@ -95,7 +94,7 @@ class Server:
                     locked = True
 
             if not locked:
-                response = route.get_handler()(
+                response = route(
                     request,
                     *variables.values(),
                 )

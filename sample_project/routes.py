@@ -3,6 +3,7 @@ from jellyserve.request import Request
 from jellyserve.response import template, redirect, populate
 from jellyserve.db import SQLite
 
+count = 0
 
 @app.middleware(group="test")
 def middleware(request: Request):
@@ -21,7 +22,7 @@ def catch_all_middleware(request: Request):
 @app.route("/", group="test")
 def index(request: Request):
     print(request.cookies.get("test"))
-    return "Wow, Thats index!.."
+    return "Wow, Thats index!"
 
 
 @app.route("/example")
@@ -35,7 +36,7 @@ def test(request, test_id):
 
 
 @app.route("/nomatcher/[id]")
-def test2(request, test_id):
+def nomatcher(request, test_id):
     return f"Look ma! No matcher: {test_id}"
 
 
@@ -68,6 +69,8 @@ def post(request: Request):
 
 @app.route("/populated")
 def populated(request):
+    global count
     db = SQLite("dev.db")
     with db.query("SELECT * FROM Users;") as result:
-        return populate("frontend/Populated.svelte", {"response": result})
+        count += 1
+        return populate("frontend/Populated.svelte", {"count": count, "response": result})
