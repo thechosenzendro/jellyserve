@@ -1,15 +1,12 @@
-from typing import Any, Callable
-import asyncio
-import shutil
-import os
+from typing import Callable
 import multiprocessing
-import sys
 from ._exceptions import UnknownRouteMethodError
 from .response import generate_component
 from ._config import config
 from ._routes import Route
 from ._matchers import Matcher
 from .messages import MessageServer
+
 
 class JellyServe:
     def __init__(self, _config: dict | None = None):
@@ -44,8 +41,6 @@ class JellyServe:
         def matcher_decorator(func: Callable):
             from ._matchers import Matcher
 
-
-
             self.matchers[name] = Matcher(func)
             return func
 
@@ -77,7 +72,6 @@ class JellyServe:
     def __call__(self):
         from ._server import Server
         return Server(self)
-
 
     def run(self) -> None:
         for message_port, message_server in self.messages.items():

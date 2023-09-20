@@ -1,4 +1,5 @@
 /dist
+/.idea
 /src/jellyserve.egg-info
 /src/__pycache__
 /sample_project/__pycache__
