@@ -46,7 +46,7 @@ class Route:
         # Checking if the url is a file path
         if re.fullmatch(r"^.*\..*$", url):
             url = url[1:]
-            public_path = config.get_config_value("server/public_path")
+            public_path = config.get("server/public_path")
             file_path = f"{public_path}/{url}"
 
             if not os.path.isfile(file_path):
@@ -90,7 +90,7 @@ class Route:
                             return (
                                 error(
                                     400,
-                                    config.get_config_value(
+                                    config.get(
                                         "server/errors/messages/400"
                                     ),
                                 ),
@@ -103,4 +103,4 @@ class Route:
                     break
             else:
                 return Route._get_from_pattern(pattern, routes), variables
-        return error(404, config.get_config_value("server/errors/messages/404")), None
+        return error(404, config.get("server/errors/messages/404")), None

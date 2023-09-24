@@ -32,13 +32,13 @@ class Config:
     def set_config(self, config: dict):
         self.config = config
 
-    def get_config_value(self, path_to_value: str) -> str | int | dict | list | None:
+    def get(self, path_to_value: str) -> str | int | dict | list | None:
         result = self._get_value(self.config, path_to_value)
         if result is None:
             result = self._get_value(default_config, path_to_value)
         return result
 
-    def set_config_value(self, path: str, value):
+    def set(self, path: str, value):
         self._set_value(self.config, path, value)
 
     def _get_value(self, _dict: dict, path_to_value: str):

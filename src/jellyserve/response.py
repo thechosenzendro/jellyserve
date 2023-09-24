@@ -12,7 +12,7 @@ class Response:
         content: str
         | bytes = 'Looks like you did not specify "content" in your Response.',
         status: int = 200,
-        headers: dict = config.get_config_value("server/default_headers"),
+        headers: dict = config.get("server/default_headers"),
         cookies: Cookies = Cookies({}),
     ) -> None:
         self.status = status
@@ -22,51 +22,42 @@ class Response:
 
 
 def template(
-    template_location: str,
-    headers: dict = config.get_config_value("server/default_headers"),
+    location: str,
+    headers: dict = config.get("server/default_headers"),
     cookies: Cookies = Cookies({}),
 ) -> Response:
-    with open(template_location, encoding="utf-8") as template:
-        if template_location.endswith(".html"):
+    from ._exceptions import TemplateNotFound, FileNotSupported
+    from string import Template
+    with open(location, encoding="utf-8") as template:
+        if location.endswith(".html"):
             return Response(template.read(), headers=headers, cookies=cookies)
 
-        elif template_location.endswith(".svelte"):
-            server_mode = config.get_config_value("server/mode")
-            runtime_path = config.get_config_value("server/runtime_path")
-            if server_mode == "dev":
-                html = generate_component(template_location)
-                return Response(content=html, headers=headers, cookies=cookies)
-            elif server_mode == "prod":
-                component_name = os.path.basename(template_location).replace(
-                    ".svelte", ""
-                )
-                html_path = f"{runtime_path}/{component_name}/template.html"
-                if os.path.exists(html_path):
-                    with open(html_path) as html:
-                        return Response(
-                            content=html.read(), headers=headers, cookies=cookies
+        elif location.endswith(".svelte"):
+            component_name = os.path.basename(location).replace(".svelte", "")
+            runtime_component_url = f"{config.get('server/runtime_url')}/{component_name}"
+            templates_path = config.get("templates/templates_path")
+            html = f"{templates_path}/template.html"
+            
+
+            if os.path.exists(location):
+                with open(html) as html:
+                    template = Template(html.read())
+                    content = template.substitute(component_code=f"{runtime_component_url}/bundle.js")
+                    return Response(
+
+                            content=content, headers=headers, cookies=cookies
                         )
-                else:
-                    return error(
-                        404,
-                        f"Component {component_name} not found.",
-                        headers=headers,
-                        cookies=cookies,
-                    )
             else:
-                file_extension = pathlib.Path(template_location).suffix
-                return error(
-                    501,
-                    f"{file_extension} files not supported",
-                    headers=headers,
-                    cookies=cookies,
-                )
+                raise TemplateNotFound(f"Template location {location} not found.")
+        else:
+            file_extension = pathlib.Path(location).suffix
+            raise FileNotSupported(f"{file_extension} files not supported.")
 
 
 def populate(
     template_location: str,
     context: (dict, list),
-    headers: dict = config.get_config_value("server/default_headers"),
+    headers: dict = config.get("server/default_headers"),
     cookies: Cookies = Cookies({}),
 ) -> Response:
     if template_location.endswith(".html"):
@@ -77,13 +68,13 @@ def populate(
             cookies=cookies,
         )
     elif template_location.endswith(".svelte"):
-        server_mode = config.get_config_value("server/mode")
+        server_mode = config.get("server/mode")
         if server_mode == "dev":
             html = generate_component(template_location, context=context)
             return Response(content=html, headers=headers, cookies=cookies)
         elif server_mode == "prod":
-            runtime_path = config.get_config_value("server/runtime_path")
-            runtime_url = config.get_config_value("server/runtime_url")
+            runtime_path = config.get("server/runtime_path")
+            runtime_url = config.get("server/runtime_url")
             component_name = os.path.basename(template_location).replace(".svelte", "")
             with open(
                 f"{runtime_path}/{component_name}/populated_output.js", "w+"
@@ -111,7 +102,7 @@ class Error:
         self,
         status: int,
         message: str = ...,
-        headers: dict = config.get_config_value("server/default_headers"),
+        headers: dict = config.get("server/default_headers"),
         cookies: Cookies = Cookies({}),
     ) -> Response:
         self.status = status
@@ -131,10 +122,10 @@ class Error:
 def error(
     status: int,
     message: str = ...,
-    headers: dict = config.get_config_value("server/default_headers"),
+    headers: dict = config.get("server/default_headers"),
     cookies: Cookies = Cookies({}),
 ) -> Response:
-    error_template_path = str(config.get_config_value("server/errors/template_path"))
+    error_template_path = str(config.get("server/errors/template_path"))
     with open(error_template_path) as error_template:
         error_template = Template(error_template.read())
         error_template = error_template.substitute(
@@ -148,100 +139,10 @@ def error(
 def redirect(
     status: int,
     redirect_url: str,
-    headers: dict = config.get_config_value("server/default_headers"),
+    headers: dict = config.get("server/default_headers"),
     cookies: Cookies = Cookies({}),
 ) -> Response:
     final_headers = {"Location": redirect_url}
     for header_name, header_value in headers.items():
         final_headers[header_name] = header_value
     return Response(status=status, headers=final_headers, cookies=cookies)
-
-def abspath(string: str, with_file: bool = False) -> str:
-    if with_file:
-        return "file:///" + os.path.abspath(string).replace('\\', '/')
-    else:
-        return os.path.abspath(string).replace('\\', '/')
-
-def generate_component(url: str, context=None) -> str:
-    component_name = os.path.basename(url).replace(".svelte", "")
-    runtime_path = config.get_config_value("server/runtime_path")
-    templates_path = config.get_config_value("templates/templates_path")
-    frontend_path = config.get_config_value("templates/frontend_path")
-    runtime_url = config.get_config_value("server/runtime_url")
-
-    os.makedirs(f"{runtime_path}/{component_name}", exist_ok=True)
-
-    js_path = f"{runtime_path}/{component_name}/template.js"
-    js_template_path = f"{templates_path}/template.js"
-    with open(js_path, "w+", encoding="utf-8") as js, open(
-        js_template_path, "r", encoding="utf-8"
-    ) as js_template:
-        js_template = Template(js_template.read())
-        js_template = js_template.substitute(component_code=abspath(url))
-        js.write(js_template)
-
-    if context is not None:
-        populated_template_path = (
-            f"{runtime_path}/{component_name}/populated_template.js"
-        )
-        with open(js_path, "r") as js, open(
-            populated_template_path,
-            "w+",
-            encoding="utf-8",
-        ) as js_populated_template:
-            context = json.dumps(context)
-            content = js.read().replace('"#component_data"', context)
-            js_populated_template.write(content)
-    with open(
-        f"{runtime_path}/{component_name}/rollup.config.mjs", "w+", encoding="utf-8"
-    ) as rollup:
-        with open(
-            f"{templates_path}/template.rollup.config.mjs", "r", encoding="utf-8"
-        ) as rollup_template:
-            if context is not None:
-                template_js_path = (
-                    abspath(
-                        f"{runtime_path}/{component_name}/populated_template.js"
-                    ),
-                )
-            else:
-                template_js_path = (
-                    abspath(f"{runtime_path}/{component_name}/template.js"),
-                )
-            rollup_template = Template(rollup_template.read())
-            rollup_template = rollup_template.substitute(
-                svelte_path=abspath(
-                    f"{frontend_path}/node_modules/rollup-plugin-svelte/index.js",
-                    with_file=True
-                ),
-                resolve_path=abspath(
-                    f"{frontend_path}/node_modules/@rollup/plugin-node-resolve/dist/es/index.js",
-                    with_file=True
-                ),
-                js_input="".join(template_js_path),
-                js_output=abspath(f"{runtime_path}/{component_name}/output.js"),
-                frontend_path=abspath(frontend_path),
-            )
-
-            rollup.write(rollup_template)
-    if os.name == "posix":
-        os.system(
-            f"{frontend_path}/node_modules/.bin/rollup -c {runtime_path}/{component_name}/rollup.config.mjs"
-        )
-    elif os.name == "nt":
-        os.system(
-            f'{abspath(f"{frontend_path}/node_modules/.bin/rollup.cmd")} -c {runtime_path}/{component_name}/rollup.config.mjs'
-        )
-    html_path = f"{runtime_path}/{component_name}/template.html"
-    html_template_path = f"{frontend_path}/.templates/template.html"
-    with open(html_path, "w+", encoding="utf-8") as html, open(
-        html_template_path, "r", encoding="utf-8"
-    ) as html_template:
-        html_result = Template(html_template.read())
-        html_result = html_result.substitute(
-            component_code=f"{runtime_url}{component_name}/output.js",
-        )
-
-        html.write(html_result)
-        print(f"Component {component_name} generated succesfully.")
-        return html_result

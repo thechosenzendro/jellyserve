@@ -5,11 +5,16 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "chokidar": "^3.5.3",
     "svelte": "^4.1.1"
+  },
+  "scripts": {
+    "compile": "rollup -c -w"
   },
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^15.1.0",
     "rollup": "^3.27.0",
-    "rollup-plugin-svelte": "^7.1.6"
+    "rollup-plugin-svelte": "^7.1.6",
+    "rollup-plugin-watch": "^1.0.3"
   }
 }

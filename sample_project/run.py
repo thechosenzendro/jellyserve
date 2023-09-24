@@ -7,5 +7,4 @@ import messages
 
 if __name__ == "__main__":
     app.run()
-    uvicorn.run("run:app", port=1407, reload=True)
 

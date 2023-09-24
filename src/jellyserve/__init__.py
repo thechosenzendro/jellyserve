@@ -1,7 +1,5 @@
 from typing import Callable
-import multiprocessing
 from ._exceptions import UnknownRouteMethodError
-from .response import generate_component
 from ._config import config
 from ._routes import Route
 from ._matchers import Matcher
@@ -12,13 +10,12 @@ class JellyServe:
     def __init__(self, _config: dict | None = None):
         self.routes: dict[str, Route] = {}
         self.matchers: dict[str, Matcher] = {}
-        self.messages: dict[int, MessageServer] = {}
         self.middlewares = {"by_group": {}, "by_regex": {}}
         config.set_config(_config)
 
     def route(self, pattern: str, method: str = "GET", group: str = "") -> Callable:
         def route_decorator(func: Callable):
-            allowed_methods: dict = config.get_config_value(
+            allowed_methods: dict = config.get(
                 "server/allowed_methods")
 
             if method not in allowed_methods:
@@ -48,10 +45,15 @@ class JellyServe:
 
     def message_server(self, port: int) -> Callable:
         def message_server_decorator(func: Callable):
+            return 0
             from .messages import MessageServer
-
-            self.messages[port] = MessageServer(func)
-            return func
+            import multiprocessing
+            server = None
+            try:
+                server = MessageServer(port, func)
+                return func
+            finally:
+                multiprocessing.Process(target=server.start).start()
 
         return message_server_decorator
 
@@ -72,16 +74,17 @@ class JellyServe:
     def __call__(self):
         from ._server import Server
         return Server(self)
+    
+    def _start_svelte(self):
+        import os
+        frontend_path = config.get("templates/frontend_path")
+        try:
+            os.system(f"cd {frontend_path} && node generator.mjs")
+        except KeyboardInterrupt:
+            pass
 
-    def run(self) -> None:
-        for message_port, message_server in self.messages.items():
-
-            multiprocessing.Process(
-                target=message_server.start, args=(message_port,)
-            ).start()
-
-            print(f"Message server started at ws://localhost:{message_port}")
-
-#        if os.path.exists(runtime_path):
-#            shutil.rmtree(runtime_path)
-#        print("Web server stopped.")
+    def run(self):
+        import uvicorn
+        import multiprocessing
+        multiprocessing.Process(target=self._start_svelte).start()
+        uvicorn.run("run:app", port=1407, reload=True)

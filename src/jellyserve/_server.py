@@ -87,7 +87,7 @@ class Server:
 
             if not locked:
                 if not scope["method"] == route.method:
-                    error_message = config.get_config_value(
+                    error_message = config.get(
                         "server/errors/messages/405"
                     )
                     response = error(405, error_message)
