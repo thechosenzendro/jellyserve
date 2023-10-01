@@ -18,10 +18,8 @@ class MessageServer:
             port: int,
             handler: Callable,
     ) -> None:
-        print("test")
         self.port = port
         self.handler = handler
-        print("test2")
 
     def start(self):
         import websockets

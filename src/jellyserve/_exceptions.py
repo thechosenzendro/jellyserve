@@ -10,3 +10,6 @@ class TemplateNotFound(Exception):
 
 class FileNotSupported(Exception):
     pass
+
+class FileNotCompatibleWithPopulate(Exception):
+    pass

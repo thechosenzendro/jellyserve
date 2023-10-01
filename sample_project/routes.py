@@ -1,9 +1,15 @@
+import re
 from app import app
 from jellyserve.request import Request
 from jellyserve.response import template, redirect, populate
 from jellyserve.db import SQLite
 
 count = 0
+
+@app.matcher("int")
+def int_matcher(value: str):
+    return re.fullmatch(r"^-?\d+$", value)
+
 
 @app.middleware(group="test")
 def middleware(request: Request):
@@ -45,6 +51,9 @@ def sveltetest(request: Request):
     print(request.body, request.url_params, request.cookies)
     return template("frontend/Index.svelte")
 
+@app.route("/svelte/testing")
+def svelte_testing(request: Request):
+    return template("frontend/Test.svelte")
 
 @app.route("/api", method="POST")
 def api(request):

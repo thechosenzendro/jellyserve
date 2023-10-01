@@ -55,27 +55,19 @@ def template(
 
 
 def populate(
-    template_location: str,
+    location: str,
     context: (dict, list),
     headers: dict = config.get("server/default_headers"),
     cookies: Cookies = Cookies({}),
 ) -> Response:
-    if template_location.endswith(".html"):
-        return error(
-            501,
-            ".html files cannot be used with populate()",
-            headers=headers,
-            cookies=cookies,
-        )
-    elif template_location.endswith(".svelte"):
-        server_mode = config.get("server/mode")
-        if server_mode == "dev":
-            html = generate_component(template_location, context=context)
-            return Response(content=html, headers=headers, cookies=cookies)
-        elif server_mode == "prod":
+    from ._exceptions import FileNotCompatibleWithPopulate
+    if location.endswith(".html"):
+        raise FileNotCompatibleWithPopulate("HTML files cannot be used with populate.")
+    elif location.endswith(".svelte"):
+            assert 1 == 0
             runtime_path = config.get("server/runtime_path")
             runtime_url = config.get("server/runtime_url")
-            component_name = os.path.basename(template_location).replace(".svelte", "")
+            component_name = os.path.basename(location).replace(".svelte", "")
             with open(
                 f"{runtime_path}/{component_name}/populated_output.js", "w+"
             ) as populated_output:
